@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1252</width>
+    <height>540</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>MainWindow</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <widget class="QTableWidget" name="orderTable">
+    <property name="geometry">
+     <rect>
+      <x>60</x>
+      <y>30</y>
+      <width>1141</width>
+      <height>411</height>
+     </rect>
+    </property>
+    <column>
+     <property name="text">
+      <string>OrderID</string>
+     </property>
+    </column>
+    <column>
+     <property name="text">
+      <string>CustomerID</string>
+     </property>
+    </column>
+    <column>
+     <property name="text">
+      <string>EmployeeID</string>
+     </property>
+    </column>
+    <column>
+     <property name="text">
+      <string>OrderDate</string>
+     </property>
+    </column>
+    <column>
+     <property name="text">
+      <string>RequiredDate</string>
+     </property>
+    </column>
+    <column>
+     <property name="text">
+      <string>ShippedDate</string>
+     </property>
+    </column>
+    <column>
+     <property name="text">
+      <string>ShipVia</string>
+     </property>
+    </column>
+    <column>
+     <property name="text">
+      <string>Freight</string>
+     </property>
+    </column>
+    <column>
+     <property name="text">
+      <string>ShipName</string>
+     </property>
+    </column>
+    <column>
+     <property name="text">
+      <string>ShipAddress</string>
+     </property>
+    </column>
+    <column>
+     <property name="text">
+      <string>ShipCity</string>
+     </property>
+    </column>
+    <column>
+     <property name="text">
+      <string>ShipRegion</string>
+     </property>
+    </column>
+    <column>
+     <property name="text">
+      <string>ShipPostalCode</string>
+     </property>
+    </column>
+    <column>
+     <property name="text">
+      <string>ShipCountry</string>
+     </property>
+    </column>
+   </widget>
+   <widget class="QPushButton" name="InsertOrder">
+    <property name="geometry">
+     <rect>
+      <x>60</x>
+      <y>470</y>
+      <width>1151</width>
+      <height>28</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Insert New Order</string>
+    </property>
+   </widget>
+  </widget>
+  <widget class="QStatusBar" name="statusbar"/>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
