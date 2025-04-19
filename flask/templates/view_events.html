@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Past Events</title>
+</head>
+<body>
+    <h1>Past Events</h1>
+    <table border="1">
+        <thead>
+            <tr>
+                <th>Club Name</th>
+                <th>Location</th>
+                <th>Date</th>
+                <th>Time</th>
+                <th>Budget</th>
+                <th>Feedback</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for event in events %}
+                <tr>
+                    <td>{{ event.club_name }}</td>
+                    <td>{{ event.location }}</td>
+                    <td>{{ event.date }}</td>
+                    <td>{{ event.time }}</td>
+                    <td>{{ event.budget }}</td>
+                    <td>{{ event.feedback }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

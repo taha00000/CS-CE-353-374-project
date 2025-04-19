@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>View Resource Requests</title>
+</head>
+<body>
+    <h1>Resource Requests</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Resource</th>
+                <th>Due Date</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for request in requests %}
+                <tr>
+                    <td>{{ request.resource.resource_name }}</td>
+                    <td>{{ request.due_date }}</td>
+                    <td>{{ 'Approved' if request.approved else 'Pending' }}</td>
+                    <td>
+                        {% if not request.approved %}
+                            <a href="{{ url_for('approve_request', id=request.id) }}">Approve</a>
+                            <a href="{{ url_for('reject_request', id=request.id) }}">Reject</a>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

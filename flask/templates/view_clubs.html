@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>View Clubs</title>
+</head>
+<body>
+    <h1>View Clubs</h1>
+
+    <form method="POST">
+        <label for="club_name">Select Club:</label>
+        <select name="club_name" id="club_name">
+            {% for club in clubs %}
+                <option value="{{ club }}" {% if club == club_name %}selected{% endif %}>{{ club }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit">View Funds</button>
+    </form>
+
+    {% if club_name %}
+        <h2>Club: {{ club_name }}</h2>
+        <p>Total Funds: ${{ total_funds }}</p>
+    {% endif %}
+</body>
+</html>

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Event Requests</title>
+</head>
+<body>
+    <h1>Submit Event Request</h1>
+    <form method="POST">
+        <label>Club Name:</label>
+        <input type="text" name="club_name" required><br>
+        <label>Event Name:</label>
+        <input type="text" name="event_name" required><br>
+        <label>Event Description:</label>
+        <textarea name="event_description" required></textarea><br>
+        <button type="submit">Submit Request</button>
+    </form>
+
+    <h2>All Event Requests</h2>
+    <ul>
+        {% for req in requests %}
+            <li>
+                <strong>{{ req.event_name }}</strong> ({{ req.club_name }}): {{ req.event_description }}
+                - Status: {{ 'Approved' if req.approved else 'Pending' }}
+                {% if not req.approved %}
+                    | <a href="{{ url_for('approve_event', id=req.id) }}">Approve</a>
+                    | <a href="{{ url_for('reject_event', id=req.id) }}">Reject</a>
+                {% endif %}
+            </li>
+        {% endfor %}
+    </ul>
+</body>
+</html>
