@@ -1,0 +1,10 @@
+<!-- club_selector.html -->
+<form method="post">
+    <label for="club_name">Select Club:</label>
+    <select name="club_name" required>
+        {% for club in clubs %}
+            <option value="{{ club.club_name }}">{{ club.club_name }}</option>
+        {% endfor %}
+    </select>
+    <button type="submit">Submit</button>
+</form>

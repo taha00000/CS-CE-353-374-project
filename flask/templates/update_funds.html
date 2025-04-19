@@ -1,0 +1,33 @@
+<!-- update_funds.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Update Club Funds</title>
+</head>
+<body>
+    <h1>Update Funds for a Club</h1>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <ul>
+          {% for msg in messages %}
+            <li>{{ msg }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+
+    {% include 'club_selector.html' %}
+
+    {% if selected_club %}
+    <hr>
+    <h2>Current Total: {{ current_total }}</h2>
+    <form method="post" action="{{ url_for('update_funds') }}">
+        <input type="hidden" name="club_name" value="{{ selected_club }}">
+        <label for="amount">Amount to Add:</label>
+        <input type="number" step="0.01" name="amount" required>
+        <button type="submit">Update</button>
+    </form>
+    {% endif %}
+</body>
+</html>

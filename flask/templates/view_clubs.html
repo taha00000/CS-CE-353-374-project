@@ -9,17 +9,16 @@
     <h1>View Clubs</h1>
 
     <form method="POST">
-        <label for="club_name">Select Club:</label>
-        <select name="club_name" id="club_name">
+        <select name="club_id">
             {% for club in clubs %}
-                <option value="{{ club }}" {% if club == club_name %}selected{% endif %}>{{ club }}</option>
+                <option value="{{ club.id }}">{{ club.club_name }}</option>
             {% endfor %}
         </select>
-        <button type="submit">View Funds</button>
+        <input type="submit" value="View Funds">
     </form>
-
-    {% if club_name %}
-        <h2>Club: {{ club_name }}</h2>
+    
+    {% if selected_club %}
+        <h3>{{ selected_club.club_name }} Total Funds: {{ total_funds }}</h3>
         <p>Total Funds: ${{ total_funds }}</p>
     {% endif %}
 </body>

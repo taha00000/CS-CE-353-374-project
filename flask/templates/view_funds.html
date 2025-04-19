@@ -1,0 +1,48 @@
+<!-- view_funds.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>View Club Funds</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <h1>View Club Funds Over Time</h1>
+
+    {% include 'club_selector.html' %}
+
+    {% if fund_entries %}
+        <h2>Fund History for {{ selected_club }}</h2>
+        <table border="1">
+            <tr>
+                <th>Entry ID</th>
+                <th>Amount</th>
+            </tr>
+            {% for entry in fund_entries %}
+            <tr>
+                <td>{{ entry.id }}</td>
+                <td>{{ entry.amount }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+
+        <canvas id="fundChart" width="400" height="200"></canvas>
+        <script>
+            const ctx = document.getElementById('fundChart').getContext('2d');
+            const chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: {{ fund_entries|map(attribute='id')|list }},
+                    datasets: [{
+                        label: 'Amount Over Time',
+                        data: {{ fund_entries|map(attribute='amount')|list }},
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 2,
+                        fill: false,
+                        tension: 0.1
+                    }]
+                }
+            });
+        </script>
+    {% endif %}
+</body>
+</html>

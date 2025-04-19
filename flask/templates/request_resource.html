@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Request Resource</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 30px; max-width: 500px; margin: auto; }
+        h2 { text-align: center; }
+        form { display: flex; flex-direction: column; }
+        label, select, input { margin-bottom: 15px; font-size: 16px; padding: 8px; }
+        button { padding: 10px; background-color: purple; color: white; font-size: 16px; border: none; }
+        .alert { padding: 10px; margin-bottom: 15px; }
+        .success { background-color: #d4edda; color: #155724; }
+        .danger { background-color: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <h2>Student Resource Request</h2>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+            <div class="alert {{ category }}">{{ message }}</div>
+        {% endfor %}
+    {% endwith %}
+
+    <form method="POST">
+        <label for="resource">Select a Resource:</label>
+        <select name="resource" id="resource">
+            {% for item in resources %}
+                <option value="{{ item }}">{{ item }}</option>
+            {% endfor %}
+        </select>
+
+        <label for="due_date">Due Date (MM/DD/YYYY):</label>
+        <input type="text" name="due_date" id="due_date" placeholder="04/25/2025">
+
+        <button type="submit">Publish Request</button>
+    </form>
+</body>
+</html>

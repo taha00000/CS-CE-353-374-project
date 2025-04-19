@@ -6,6 +6,13 @@
 <body>
     <h1>Welcome to your Dashboard</h1>
     <a href="{{ url_for('ta') }}">TA</a>
-    <a href="{{ url_for('clubs') }}">Clubs</a>
+    {% if role == "sl" %}
+        <a href="{{ url_for('clubs_sl') }}">Clubs</a>
+    {% endif %}
+    {% if role != "sl" %}
+        <a href="{{ url_for('clubs_st') }}">Clubs</a>
+    {% endif %}
+    
+    
 </body>
 </html>

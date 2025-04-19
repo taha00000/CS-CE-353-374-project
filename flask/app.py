@@ -1,6 +1,10 @@
-from flask import Flask, render_template, request, redirect, url_for, session
+from flask import Flask, render_template, request, redirect, url_for, session, flash
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
+import matplotlib.pyplot as plt
+import io
+import base64
+import datetime
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///scheduler.db'
@@ -33,9 +37,10 @@ class Club(db.Model):
 
 class ClubFundsTracker(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    club_name = db.Column(db.String(100), db.ForeignKey('club.club_name'), nullable=False)
     amount = db.Column(db.Float, nullable=False)
-
+    purpose = db.Column(db.String(200), nullable=False)
+    date = db.Column(db.String(20), nullable=False)
+    club_id = db.Column(db.Integer, db.ForeignKey('club.id'), nullable=False)
     club = db.relationship('Club', backref='funds_tracker')
 
 # Define Resource model
@@ -56,7 +61,8 @@ class ResourceRequest(db.Model):
 
 class EventRequest(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    club_name = db.Column(db.String(100), nullable=False)
+    club_id = db.Column(db.Integer, db.ForeignKey('club.id'), nullable=False)
+    club = db.relationship('Club', backref='event_requests')
     event_name = db.Column(db.String(100), nullable=False)
     event_description = db.Column(db.Text, nullable=False)
     approved = db.Column(db.Boolean, default=False)
@@ -96,7 +102,7 @@ def dashboard():
         return redirect(url_for('login'))  # Redirect to login if not logged in
     
     user = User.query.get(session['user_id'])
-    return render_template('dashboard.html', user=user)
+    return render_template('dashboard.html', user=user, role=user.role)
 
 @app.route('/ta')
 def ta():
@@ -210,12 +216,12 @@ def logout():
     session.clear()
     return redirect(url_for('home'))
 
-@app.route('/clubs')
-def clubs():
+@app.route('/clubs_sl')
+def clubs_sl():
     if 'user_id' not in session or 'role' not in session:
         return redirect(url_for('login'))
     user = User.query.get(session['user_id'])  # Get the current user from session
-    return render_template('clubs.html', first_name=user.first_name, role=user.role)
+    return render_template('clubs_sl.html', first_name=user.first_name, role=user.role)
 
 @app.route('/view_resources')
 def view_resources():
@@ -255,21 +261,20 @@ def view_events():
 
 @app.route('/view_clubs', methods=['GET', 'POST'])
 def view_clubs():
-    clubs = Club.query.all()  # Fetch all clubs from the database
-    clubs_list = [club.club_name for club in clubs]
-
-    club_name = None
+    clubs = Club.query.all()  # Fetch all clubs
+    selected_club = None
     total_funds = None
 
     if request.method == 'POST':
-        # Get selected club
-        club_name = request.form['club_name']
-        
-        # Get total funds for the selected club
-        total_funds_record = db.session.query(db.func.sum(ClubFundsTracker.amount)).filter(ClubFundsTracker.club_name == club_name).scalar()
-        total_funds = total_funds_record if total_funds_record else 0
+        selected_club_id = request.form['club_id']  # This is a string (from dropdown value)
+        selected_club = Club.query.get(int(selected_club_id))  # Convert to Club object
 
-    return render_template('view_clubs.html', clubs=clubs_list, club_name=club_name, total_funds=total_funds)
+        if selected_club:
+            total_funds = db.session.query(db.func.sum(ClubFundsTracker.amount))\
+                .filter_by(club_id=selected_club.id).scalar()
+            total_funds = total_funds if total_funds else 0
+
+    return render_template('view_clubs.html', clubs=clubs, selected_club=selected_club, total_funds=total_funds)
 
 @app.route('/resource_requests')
 def resource_requests():
@@ -346,9 +351,141 @@ def reject_event(id):
     db.session.commit()
     return redirect(url_for('event_requests'))
 
-@app.route('/club_finances')
+@app.route('/club_finances', methods=['GET', 'POST'])
 def club_finances():
-    return render_template('club_finances.html')
+    clubs = Club.query.all()
+    selected_club = request.form.get('club_name') if request.method == 'POST' else clubs[0].club_name if clubs else None
+    finances = []
+    graph_url = None
+
+    if selected_club:
+        data = ClubFundsTracker.query.filter_by(club_name=selected_club).order_by(ClubFundsTracker.date).all()
+        final_balance = 0
+        for entry in data:
+            final_balance += entry.amount
+            finances.append({
+                'purpose': entry.purpose,
+                'amount': entry.amount,
+                'date': entry.date,
+                'final_balance': final_balance
+            })
+
+        # Graph generation
+        x_labels = [f["date"] + "\n" + f["purpose"] for f in finances]
+        y_values = [f['final_balance'] for f in finances]
+
+        fig, ax = plt.subplots()
+        ax.plot(x_labels, y_values, marker='o', linestyle='-', color='skyblue')
+        ax.set_title(f'{selected_club} Financials')
+        ax.set_xlabel('Date / Purpose')
+        ax.set_ylabel('Final Balance (PKR)')
+        plt.xticks(rotation=45)
+        plt.tight_layout()
+
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png")
+        buf.seek(0)
+        graph_url = base64.b64encode(buf.getvalue()).decode('utf-8')
+        buf.close()
+
+    return render_template('club_finances.html', clubs=clubs, selected_club=selected_club, finances=finances, graph_url=graph_url)
+
+@app.route('/clubs_st')
+def clubs_st():
+    username = session.get('username')  # Assuming the username is stored in the session
+    if not username:
+        return redirect(url_for('login'))  # Redirect to login if no username in session
+    return render_template('clubs_st.html', username=username)
+
+@app.route('/borrowed_resources')
+def borrowed_resources():
+    # Sample data for demonstration; replace with DB query
+    resource = {
+        "id": "MIC001",
+        "name": "Microphone",
+        "lent_out_to": "SerVe",
+        "event": "DiscO"
+    }
+    return render_template('borrowed_resources.html', resource=resource)
+
+@app.route('/request_resource')
+def request_resource():
+    resources = ["Textbooks", "Laptop", "Study Room", "Lab Equipment"]
+
+    if request.method == 'POST':
+        selected_resource = request.form.get('resource')
+        due_date = request.form.get('due_date')
+
+        if selected_resource and due_date:
+            # Example: Save to DB (replace with real logic)
+            flash(f"Request submitted for '{selected_resource}' with due date {due_date}.", "success")
+            return redirect(url_for('resource_requests.request_resource'))
+        else:
+            flash("Please select a resource and provide a due date.", "danger")
+
+    return render_template('request_resource.html', resources=resources)
+
+@app.route('/request_event')
+def request_event():
+    if request.method == "POST":
+        try:
+            ename = request.form["event_name"]
+            cname = request.form["club_name"]
+            edate = datetime.strptime(request.form["event_date"], "%d-%m-%Y").date()
+            etime = datetime.strptime(request.form["event_time"], "%H:%M").time()
+            loc = request.form["location"]
+            budget = int(request.form["budget"])
+
+            db.execute(
+                """
+                INSERT INTO Event_Request (
+                    Event_Request_ID, Event_Name, Club_Name, Date, Time, Location, Budget, Approved
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, 0)
+                """,
+                (0, ename, cname, edate, etime, loc, budget),
+            )
+            db.commit()
+            flash("Event request submitted!", "success")
+            return redirect("/request-event")
+        except Exception as e:
+            flash(f"Error: {str(e)}", "danger")
+
+    # You can also pull these from the DB if they're dynamic
+    clubs = ["SerVe", "DiscO", "Artsy", "CodeNation"]
+    locations = ["Auditorium", "Lab 1", "Room A101", "Courtyard"]
+    return render_template("request_event.html", clubs=clubs, locations=locations)
+
+@app.route('/view_attendance')
+def view_attendance():
+    # Simulated data (replace with DB call)
+    event_name = "Sample Event Name"
+    attendance_data = [
+        {"name": "Member 1", "status": "Present"},
+        {"name": "Member 2", "status": "Absent"},
+        {"name": "Member 3", "status": "Present"},
+        {"name": "Member 4", "status": "Absent"},
+        {"name": "Member 5", "status": "Present"},
+    ]
+    return render_template('view_attendance.html', event_name=event_name, attendance=attendance_data)
+
+@app.route('/event_feedback')
+def event_feedback():
+    student_id = "S1223"  # You can replace this with session-based logic if needed
+    events = ["DiscO", "Event 2", "Event 3"]
+
+    if request.method == 'POST':
+        selected_event = request.form['event']
+        feedback = request.form['feedback']
+        
+        # For now, just print it (replace with DB insertion if needed)
+        print(f"Student ID: {student_id}")
+        print(f"Selected Event: {selected_event}")
+        print(f"Feedback: {feedback}")
+
+        flash('Feedback submitted successfully!', 'success')
+        return redirect(url_for('feedback.event_feedback'))
+
+    return render_template('event_feedback.html', student_id=student_id, events=events)
 
 if __name__ == '__main__':
     with app.app_context():

@@ -1,0 +1,38 @@
+<!-- templates/club_finances.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Club Finances</title>
+</head>
+<body>
+    <h1>Club Finances</h1>
+    <form method="POST">
+        <label>Select Club:</label>
+        <select name="club_name">
+            {% for club in clubs %}
+                <option value="{{ club.club_name }}" {% if club.club_name == selected_club %}selected{% endif %}>
+                    {{ club.club_name }}
+                </option>
+            {% endfor %}
+        </select>
+        <button type="submit">View</button>
+    </form>
+
+    {% if finances %}
+        <h2>Financial History</h2>
+        <table border="1">
+            <tr><th>Purpose</th><th>Amount</th><th>Balance</th></tr>
+            {% for item in finances %}
+                <tr>
+                    <td>{{ item.purpose }}</td>
+                    <td>{{ item.amount }}</td>
+                    <td>{{ item.final_balance }}</td>
+                </tr>
+            {% endfor %}
+        </table>
+
+        <h2>Graph</h2>
+        <img src="data:image/png;base64,{{ graph_url }}" alt="Finance Graph">
+    {% endif %}
+</body>
+</html>
