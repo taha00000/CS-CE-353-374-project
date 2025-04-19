@@ -1,23 +1,45 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
     <title>Register</title>
+    <style>
+        .inline-inputs {
+            display: flex;
+            gap: 10px;
+        }
+    </style>
 </head>
 <body>
-    <h1>Register</h1>
+    <h2>Register</h2>
     <form method="POST">
-        <label>Username:</label>
-        <input type="text" name="username" required><br><br>
+        <div class="inline-inputs">
+            <label>First Name:</label>
+            <input type="text" name="first_name" required>
+            <label>Last Name:</label>
+            <input type="text" name="last_name" required>
+        </div>
+        <br>
+        <label>User ID:</label>
+        <input type="text" name="user_id" required><br>
         <label>Password:</label>
-        <input type="password" name="password" required><br><br>
-        <label>Confirm Password:</label>
-        <input type="password" name="confirm_password" required><br><br>
-        <input type="submit" value="Register">
+        <input type="password" name="password" required><br>
+        <label>Role:</label>
+        <select name="role">
+            <option value="student">Student</option>
+            <option value="ta">Teaching Assistant</option>
+            <option value="instructor">Instructor</option>
+            <option value="ra">Research Assistant</option>
+        </select><br>
+        <label>Major:</label>
+        <select name="major">
+            <option value="cs">Computer Science</option>
+            <option value="ce">Computer Engineering</option>
+            <option value="ee">Electrical Engineering</option>
+            <option value="cnd">Communication & Design</option>
+            <option value="sdp">Social Development & Policy</option>
+            <option value="ch">Comparative Humanities</option>
+        </select><br>
+        <button type="submit">Register</button>
     </form>
-    {% if error %}
-        <p style="color:red">{{ error }}</p>
-    {% endif %}
-    <p>Already have an account? <a href="{{ url_for('login') }}">Login here</a></p>
 </body>
 </html>

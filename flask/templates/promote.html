@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Promote Student to TA</title>
+</head>
+<body>
+    <h1>Promote Student to TA</h1>
+    <table border="1">
+        <tr>
+            <th>User ID</th>
+            <th>Action</th>
+        </tr>
+        {% for student in students %}
+        <tr>
+            <td>{{ student.user_id }}</td>
+            <td>
+                <form action="{{ url_for('promote_to_ta', user_id=student.id) }}" method="post">
+                    <button type="submit">Promote</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+    <a href="{{ url_for('dashboard') }}">Back to Dashboard</a>
+</body>
+</html>

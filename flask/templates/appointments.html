@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>TA Appointment Schedule</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .schedule {
+            display: grid;
+            grid-template-columns: 100px repeat(5, 1fr); /* Time + 5 weekdays */
+            grid-template-rows: repeat(9, 1fr); /* 9 time slots (9 AM - 5 PM) */
+            gap: 5px;
+            text-align: center;
+        }
+        .slot, .header {
+            border: 1px solid black;
+            padding: 10px;
+            min-height: 50px;
+        }
+        .header {
+            font-weight: bold;
+            background-color: #ddd;
+        }
+        .available {
+            background-color: #ccffcc;
+        }
+        .booked {
+            background-color: #ffcccc;
+        }
+    </style>
+</head>
+<body>
+    <h1>TA Appointment Schedule</h1>
+
+    {% if session['role'] in ['ta', 'ra', 'instructor'] %}
+    <h2>Create New Appointment</h2>
+    <form method="POST">
+        <label>Day:</label>
+        <select name="day" required>
+            <option value="Monday">Monday</option>
+            <option value="Tuesday">Tuesday</option>
+            <option value="Wednesday">Wednesday</option>
+            <option value="Thursday">Thursday</option>
+            <option value="Friday">Friday</option>
+        </select>
+        <label>Time:</label>
+        <select name="time" required>
+            {% for hour in range(9, 18) %}
+            <option value="{{ hour }}:00">{{ hour }}:00</option>
+            {% endfor %}
+        </select>
+        <input type="hidden" name="ta_id" value="{{ session['user_id'] }}">
+        <button type="submit">Add Appointment</button>
+    </form>
+    {% endif %}
+
+    <h2>Weekly Schedule</h2>
+    <div class="schedule">
+        <!-- Header Row -->
+        <div class="header">Time</div>
+        <div class="header">Monday</div>
+        <div class="header">Tuesday</div>
+        <div class="header">Wednesday</div>
+        <div class="header">Thursday</div>
+        <div class="header">Friday</div>
+
+        <!-- Schedule Grid -->
+        {% for hour in range(9, 18) %}
+        <div class="header">{{ hour }}:00</div> <!-- Time Column -->
+        {% for day in ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"] %}
+        <div class="slot">
+            {% for appointment in appointments %}
+                {% if appointment.day == day and appointment.time == hour|string + ":00" %}
+                    <div class="{% if appointment.booked %}booked{% else %}available{% endif %}">
+                        TA: {{ appointment.ta_first_name }} {{ appointment.ta_last_name }} <br>
+                        {% if appointment.booked %}
+                            Student: {{ appointment.student_name or "N/A" }}
+                        {% elif session['role'] == 'student' %}
+                            <a href="{{ url_for('book_appointment', appointment_id=appointment.id) }}">Book</a>
+                        {% else %}
+                            (Available)
+                        {% endif %}
+                    </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+        {% endfor %}
+        {% endfor %}
+    </div>
+
+    <a href="{{ url_for('dashboard') }}">Back to Dashboard</a>
+</body>
+</html>
