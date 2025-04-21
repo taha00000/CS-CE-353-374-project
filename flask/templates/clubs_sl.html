@@ -46,16 +46,19 @@
 </head>
 <body>
     <div class="container">
-        <h1>Welcome, {{ first_name }}</h1>
+        <h1>Welcome to the Clubs Portal</h1>
+        <p>User: {{ name }} </p>
         <p>Role: {{ role }}</p>
 
 
         <button class="button" onclick="window.location.href='/view_resources'">View Resources</button>
+        <button class="button" onclick="window.location.href='/edit_resources'">Edit Resources</button>
         <button class="button" onclick="window.location.href='/view_events'">View Events</button>
         <button class="button" onclick="window.location.href='/view_clubs'">View Clubs</button>
         <button class="button" onclick="window.location.href='/resource_requests'">Resource Requests</button>
         <button class="button" onclick="window.location.href='/event_requests'">Event Requests</button>
         <button class="button" onclick="window.location.href='/club_finances'">Club Finances</button>
+        <button class="button" onclick="window.location.href='/edit_clubs'">Edit Clubs</button>
 
         <footer>SL OFFICE DATABASE, ALL RIGHTS RESERVED 2023</footer>
     </div>

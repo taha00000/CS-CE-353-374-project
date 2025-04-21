@@ -4,22 +4,11 @@
     <title>Event Requests</title>
 </head>
 <body>
-    <h1>Submit Event Request</h1>
-    <form method="POST">
-        <label>Club Name:</label>
-        <input type="text" name="club_name" required><br>
-        <label>Event Name:</label>
-        <input type="text" name="event_name" required><br>
-        <label>Event Description:</label>
-        <textarea name="event_description" required></textarea><br>
-        <button type="submit">Submit Request</button>
-    </form>
-
-    <h2>All Event Requests</h2>
+    <h1>All Event Requests</h1>
     <ul>
         {% for req in requests %}
             <li>
-                <strong>{{ req.event_name }}</strong> ({{ req.club_name }}): {{ req.event_description }}
+                <strong>{{ req.event_name }}</strong> ({{ req.club.club_name }}): {{ req.event_description }}
                 - Status: {{ 'Approved' if req.approved else 'Pending' }}
                 {% if not req.approved %}
                     | <a href="{{ url_for('approve_event', id=req.id) }}">Approve</a>

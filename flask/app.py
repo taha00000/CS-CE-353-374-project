@@ -50,22 +50,28 @@ class Resource(db.Model):
     lent_out_to = db.Column(db.String(100), nullable=True)
     value = db.Column(db.Integer, nullable=False)
 
-# Define ResourceRequest model
 class ResourceRequest(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     resource_id = db.Column(db.Integer, db.ForeignKey('resource.id'), nullable=False)
+    student_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     due_date = db.Column(db.String(10), nullable=False)  # Date format: MM/DD/YYYY
     approved = db.Column(db.Boolean, default=False)
 
     resource = db.relationship('Resource', backref='requests')
+    student = db.relationship('User')
 
 class EventRequest(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    club_id = db.Column(db.Integer, db.ForeignKey('club.id'), nullable=False)
-    club = db.relationship('Club', backref='event_requests')
-    event_name = db.Column(db.String(100), nullable=False)
-    event_description = db.Column(db.Text, nullable=False)
+    club_id = db.Column(db.Integer, db.ForeignKey('club.id'))
+    event_name = db.Column(db.String(100))
+    event_description = db.Column(db.Text)
+    event_date = db.Column(db.Date)
+    event_time = db.Column(db.Time)
+    location = db.Column(db.String(100))
+    budget = db.Column(db.Integer)
     approved = db.Column(db.Boolean, default=False)
+
+    club = db.relationship('Club', backref='event_requests')
 
 @app.route('/')
 def home():
@@ -106,9 +112,10 @@ def dashboard():
 
 @app.route('/ta')
 def ta():
-    if 'user_id' not in session:
+    if 'user_id' not in session or 'role' not in session:
         return redirect(url_for('login'))
-    return render_template('ta.html')
+    user = User.query.get(session['user_id'])  # Get the current user from session
+    return render_template('ta.html', name=user.first_name+" "+user.last_name,  role=user.role)
 
 from sqlalchemy.orm import aliased
 
@@ -189,24 +196,28 @@ def borrow_resource():
     if 'user_id' not in session or session['role'] != 'student':
         return redirect(url_for('login'))
 
-    resource_names = ["Resource 1", "Resource 2", "Resource 3"]
+    # Fetch resource names from database
+    resources = Resource.query.all()
+    resource_names = [r.resource_name for r in resources]
     message = ""
 
     if request.method == 'POST':
         selected_resource = request.form['resource']
         due_date_str = request.form['due_date']
-        due_date = datetime.strptime(due_date_str, "%Y-%m-%d").date()
+        due_date = datetime.datetime.strptime(due_date_str, "%Y-%m-%d").strftime("%m/%d/%Y")
 
-        new_request = ResourceRequest(
-            resource_name=selected_resource,
-            student_user_id=session['user_id'],
-            due_date=due_date,
-            approved=False
-        )
-        db.session.add(new_request)
-        db.session.commit()
-
-        message = "Resource requested successfully!"
+        resource = Resource.query.filter_by(resource_name=selected_resource).first()
+        if resource:
+            new_request = ResourceRequest(
+                resource_id=resource.id,
+                due_date=due_date,
+                approved=False
+            )
+            db.session.add(new_request)
+            db.session.commit()
+            message = "Resource requested successfully!"
+        else:
+            message = "Selected resource not found!"
 
     student = User.query.get(session['user_id'])
     return render_template('borrow_resource.html', student=student, resource_names=resource_names, message=message)
@@ -221,11 +232,58 @@ def clubs_sl():
     if 'user_id' not in session or 'role' not in session:
         return redirect(url_for('login'))
     user = User.query.get(session['user_id'])  # Get the current user from session
-    return render_template('clubs_sl.html', first_name=user.first_name, role=user.role)
+    return render_template('clubs_sl.html', name=user.first_name+" "+user.last_name,  role=user.role)
 
 @app.route('/view_resources')
 def view_resources():
     return render_template('view_resources.html')
+
+@app.route('/edit_resources', methods=['GET', 'POST'])
+def edit_resources():
+    if 'user_id' not in session or session['role'] != 'sl':
+        return redirect(url_for('login'))  # Restrict access to Student Life users
+
+    if request.method == 'POST':
+        # Handle adding a new resource
+        if 'add_resource' in request.form:
+            resource_name = request.form['resource_name']
+            value = request.form['value']
+            if Resource.query.filter_by(resource_name=resource_name).first():
+                flash("Resource already exists!", "danger")
+            else:
+                new_resource = Resource(resource_name=resource_name, value=value)
+                db.session.add(new_resource)
+                db.session.commit()
+                flash("Resource added successfully!", "success")
+
+        # Handle editing an existing resource
+        elif 'edit_resource' in request.form:
+            resource_id = request.form['resource_id']
+            new_name = request.form['new_resource_name']
+            new_value = request.form['new_value']
+            resource = Resource.query.get(resource_id)
+            if resource:
+                resource.resource_name = new_name
+                resource.value = new_value
+                db.session.commit()
+                flash("Resource updated successfully!", "success")
+            else:
+                flash("Resource not found!", "danger")
+
+        # Handle deleting a resource
+        elif 'delete_resource' in request.form:
+            resource_id = request.form['resource_id']
+            resource = Resource.query.get(resource_id)
+            if resource:
+                db.session.delete(resource)
+                db.session.commit()
+                flash("Resource deleted successfully!", "success")
+            else:
+                flash("Resource not found!", "danger")
+
+    # Fetch all resources to display
+    resources = Resource.query.all()
+    return render_template('edit_resources.html', resources=resources)
 
 @app.route('/view_events')
 def view_events():
@@ -278,7 +336,8 @@ def view_clubs():
 
 @app.route('/resource_requests')
 def resource_requests():
-    return render_template('resource_requests.html')
+    requests = ResourceRequest.query.all()
+    return render_template('resource_requests.html', requests=requests)
 
 @app.route('/add_request', methods=['GET', 'POST'])
 def add_request():
@@ -320,20 +379,6 @@ def reject_request(id):
 
 @app.route('/event_requests', methods=['GET', 'POST'])
 def event_requests():
-    if request.method == 'POST':
-        club_name = request.form['club_name']
-        event_name = request.form['event_name']
-        event_description = request.form['event_description']
-
-        new_request = EventRequest(
-            club_name=club_name,
-            event_name=event_name,
-            event_description=event_description
-        )
-        db.session.add(new_request)
-        db.session.commit()
-        return redirect(url_for('event_requests'))
-
     all_requests = EventRequest.query.all()
     return render_template('event_requests.html', requests=all_requests)
 
@@ -390,12 +435,56 @@ def club_finances():
 
     return render_template('club_finances.html', clubs=clubs, selected_club=selected_club, finances=finances, graph_url=graph_url)
 
+@app.route('/edit_clubs', methods=['GET', 'POST'])
+def edit_clubs():
+    if 'user_id' not in session or session['role'] != 'sl':
+        return redirect(url_for('login'))  # Restrict access to Student Life users
+
+    if request.method == 'POST':
+        # Handle adding a new club
+        if 'add_club' in request.form:
+            club_name = request.form['club_name']
+            if Club.query.filter_by(club_name=club_name).first():
+                flash("Club already exists!", "danger")
+            else:
+                new_club = Club(club_name=club_name)
+                db.session.add(new_club)
+                db.session.commit()
+                flash("Club added successfully!", "success")
+
+        # Handle editing an existing club
+        elif 'edit_club' in request.form:
+            club_id = request.form['club_id']
+            new_name = request.form['new_club_name']
+            club = Club.query.get(club_id)
+            if club:
+                club.club_name = new_name
+                db.session.commit()
+                flash("Club updated successfully!", "success")
+            else:
+                flash("Club not found!", "danger")
+
+        # Handle deleting a club
+        elif 'delete_club' in request.form:
+            club_id = request.form['club_id']
+            club = Club.query.get(club_id)
+            if club:
+                db.session.delete(club)
+                db.session.commit()
+                flash("Club deleted successfully!", "success")
+            else:
+                flash("Club not found!", "danger")
+
+    # Fetch all clubs to display
+    clubs = Club.query.all()
+    return render_template('edit_clubs.html', clubs=clubs)
+
 @app.route('/clubs_st')
 def clubs_st():
-    username = session.get('username')  # Assuming the username is stored in the session
-    if not username:
-        return redirect(url_for('login'))  # Redirect to login if no username in session
-    return render_template('clubs_st.html', username=username)
+    if 'user_id' not in session or 'role' not in session:
+        return redirect(url_for('login'))
+    user = User.query.get(session['user_id'])  # Get the current user from session
+    return render_template('clubs_st.html', name=user.first_name+" "+user.last_name,  role=user.role)
 
 @app.route('/borrowed_resources')
 def borrowed_resources():
@@ -408,52 +497,67 @@ def borrowed_resources():
     }
     return render_template('borrowed_resources.html', resource=resource)
 
-@app.route('/request_resource')
+@app.route('/request_resource', methods=['GET', 'POST'])
 def request_resource():
-    resources = ["Textbooks", "Laptop", "Study Room", "Lab Equipment"]
-
+    resources = Resource.query.all()  # Fetch all resources from the database
     if request.method == 'POST':
-        selected_resource = request.form.get('resource')
+        selected_resource_id = request.form.get('resource_id')  # Use resource ID for saving
         due_date = request.form.get('due_date')
+        student_user_id = session.get('user_id')  # Assume the logged-in user's ID is stored in the session
 
-        if selected_resource and due_date:
-            # Example: Save to DB (replace with real logic)
-            flash(f"Request submitted for '{selected_resource}' with due date {due_date}.", "success")
-            return redirect(url_for('resource_requests.request_resource'))
+        if selected_resource_id and due_date and student_user_id:
+            # Save the resource request to the database
+            new_request = ResourceRequest(
+                resource_id=selected_resource_id,
+                student_user_id=student_user_id,
+                due_date=due_date,
+                approved=False
+            )
+            db.session.add(new_request)
+            db.session.commit()
+            flash("Resource request submitted successfully!", "success")
+            return redirect(url_for('request_resource'))
         else:
-            flash("Please select a resource and provide a due date.", "danger")
+            flash("Please select a resource, provide a due date, and ensure you are logged in.", "danger")
 
     return render_template('request_resource.html', resources=resources)
 
-@app.route('/request_event')
-def request_event():
-    if request.method == "POST":
-        try:
-            ename = request.form["event_name"]
-            cname = request.form["club_name"]
-            edate = datetime.strptime(request.form["event_date"], "%d-%m-%Y").date()
-            etime = datetime.strptime(request.form["event_time"], "%H:%M").time()
-            loc = request.form["location"]
-            budget = int(request.form["budget"])
+from flask import render_template, request, redirect, flash
+from datetime import datetime
 
-            db.execute(
-                """
-                INSERT INTO Event_Request (
-                    Event_Request_ID, Event_Name, Club_Name, Date, Time, Location, Budget, Approved
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, 0)
-                """,
-                (0, ename, cname, edate, etime, loc, budget),
+@app.route('/request_event', methods=['GET', 'POST'])
+def request_event():
+    if request.method == 'POST':
+        try:
+            club_name = request.form['club_name']
+            club = Club.query.filter_by(club_name=club_name).first()
+
+            if not club:
+                flash("Selected club does not exist.", "danger")
+                return redirect(url_for('request_event'))
+
+            new_request = EventRequest(
+                club_id=club.id,
+                event_name=request.form['event_name'],
+                event_description=request.form['event_description'],
+                event_date=datetime.strptime(request.form['event_date'], "%d-%m-%Y").date(),
+                event_time=datetime.strptime(request.form['event_time'], "%H:%M").time(),
+                location=request.form['location'],
+                budget=int(request.form['budget']),
+                approved=False
             )
-            db.commit()
-            flash("Event request submitted!", "success")
-            return redirect("/request-event")
+
+            db.session.add(new_request)
+            db.session.commit()
+            flash("Event request submitted successfully!", "success")
+            return redirect(url_for('request_event'))
+
         except Exception as e:
             flash(f"Error: {str(e)}", "danger")
 
-    # You can also pull these from the DB if they're dynamic
-    clubs = ["SerVe", "DiscO", "Artsy", "CodeNation"]
+    clubs = [club.club_name for club in Club.query.all()]
     locations = ["Auditorium", "Lab 1", "Room A101", "Courtyard"]
-    return render_template("request_event.html", clubs=clubs, locations=locations)
+    return render_template('request_event.html', clubs=clubs, locations=locations)
 
 @app.route('/view_attendance')
 def view_attendance():
