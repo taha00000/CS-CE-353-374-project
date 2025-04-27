@@ -10,6 +10,7 @@ from sqlalchemy.orm import aliased
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///scheduler.db'
+app.config['SQLALCHEMY_ECHO'] = True
 app.config['SECRET_KEY'] = 'your_secret_key'
 db = SQLAlchemy(app)
 
@@ -54,18 +55,20 @@ class ClubFundsTracker(db.Model):
 class Resource(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     resource_name = db.Column(db.String(100), nullable=False)
-    lent_out_to = db.Column(db.String(100), nullable=True)
+    lent_out_to = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)  # Foreign key to User table
     value = db.Column(db.Integer, nullable=False)
+
+    user = db.relationship('User', backref='lent_resources')  # Relationship to User model
 
 class ResourceRequest(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    resource_id = db.Column(db.Integer, db.ForeignKey('resource.id'), nullable=False)
-    student_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    due_date = db.Column(db.String(10), nullable=False)  # Date format: MM/DD/YYYY
+    resource_id = db.Column(db.Integer, db.ForeignKey('resource.id'))
+    student_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    due_date = db.Column(db.Date, nullable=False)
     approved = db.Column(db.Boolean, default=False)
 
     resource = db.relationship('Resource', backref='requests')
-    student = db.relationship('User')
+    student = db.relationship('User', backref='resource_requests')
 
 class EventRequest(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -78,7 +81,7 @@ class EventRequest(db.Model):
     budget = db.Column(db.Integer)
     approved = db.Column(db.Boolean, default=False)
 
-    club = db.relationship('Club', backref='event_requests')
+    club = db.relationship('Club', backref='event_requests')  # Relationship to Club model
 
 @app.route('/')
 def home():
@@ -101,13 +104,25 @@ def register():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    error = None  # Initialize error message
     if request.method == 'POST':
-        user = User.query.filter_by(user_id=request.form['user_id']).first()
-        if user and check_password_hash(user.password, request.form['password']):
+        user_id = request.form['user_id']
+        password = request.form['password']
+
+        # Query the user from the database
+        user = User.query.filter_by(user_id=user_id).first()
+
+        if not user:
+            error = "User ID does not exist."  # Error for invalid username
+        elif not check_password_hash(user.password, password):
+            error = "Incorrect password."  # Error for invalid password
+        else:
+            # Successful login
             session['user_id'] = user.id
             session['role'] = user.role
-            return redirect(url_for('dashboard'))
-    return render_template('login.html')
+            return redirect(url_for('dashboard'))  # Redirect to the dashboard or home page
+
+    return render_template('login.html', error=error)
 
 @app.route('/dashboard')
 def dashboard():
@@ -149,6 +164,10 @@ def appointments():
     first_name = request.args.get('first_name', '')
     last_name = request.args.get('last_name', '')
 
+    # Use aliases for the user table
+    instructor_alias = aliased(User)  # Alias for the instructor
+    student_alias = aliased(User)  # Alias for the student
+
     # Query appointments for the current week
     query = Appointment.query.filter(
         Appointment.day.between(start_of_week.strftime("%Y-%m-%d"), end_of_week.strftime("%Y-%m-%d"))
@@ -156,11 +175,14 @@ def appointments():
 
     # Apply filters if provided
     if major:
-        query = query.join(User, Appointment.t_user_id == User.id).filter(User.major == major)
+        query = query.filter(instructor_alias.major == major)
     if first_name:
-        query = query.join(User, Appointment.t_user_id == User.id).filter(User.first_name.ilike(f"%{first_name}%"))
+        query = query.filter(instructor_alias.first_name.ilike(f"%{first_name}%"))
     if last_name:
-        query = query.join(User, Appointment.t_user_id == User.id).filter(User.last_name.ilike(f"%{last_name}%"))
+        query = query.filter(instructor_alias.last_name.ilike(f"%{last_name}%"))
+
+    # Ensure the join is applied only once
+    query = query.join(instructor_alias, Appointment.t_user_id == instructor_alias.id)
 
     appointments = query.all()
 
@@ -324,12 +346,41 @@ def book_appointment():
         filter_major=filter_major
     )
 
-@app.route('/promote')
+@app.route('/promote', methods=['GET', 'POST'])
 def promote():
-    if 'user_id' not in session or session['role'] not in ['instructor', 'ra']:
-        return "Unauthorized", 403
-    students = User.query.filter_by(role='student').all()
-    return render_template('promote.html', students=students)
+    # Fetch filter criteria from the request
+    major = request.args.get('major', '')
+    first_name = request.args.get('first_name', '')
+    last_name = request.args.get('last_name', '')
+
+    # Query students
+    query = User.query.filter_by(role='student')  # Only fetch students
+    if major:
+        query = query.filter(User.major == major)
+    if first_name:
+        query = query.filter(User.first_name.ilike(f"%{first_name}%"))
+    if last_name:
+        query = query.filter(User.last_name.ilike(f"%{last_name}%"))
+
+    students = query.all()
+
+    # Map major abbreviations to full names
+    MAJOR_FULL_NAMES = {
+        "cs": "Computer Science",
+        "ece": "Electrical/Computer Engineering",
+        "sdp": "Social Development and Policy",
+        "cnd": "Communication & Design",
+        "ch": "Comparative Humanities",
+        "iscim": "Science & Mathematics (iSciM)",
+        "pg": "Playground",
+    }
+
+    return render_template(
+        'promote.html',
+        students=students,
+        majors=MAJOR_FULL_NAMES,
+        filters={'major': major, 'first_name': first_name, 'last_name': last_name}
+    )
 
 @app.route('/promote_to_ta/<int:user_id>', methods=['POST'])
 def promote_to_ta(user_id):
@@ -354,7 +405,6 @@ def schedule_office_hours():
         day = request.form['day']  # Day of the week
         start_time = request.form['start_time']
         end_time = request.form['end_time']
-        appointment_type = session['role']  # Role of the user scheduling the office hour
         recurring_until = request.form.get('recurring_until')  # End date for recurring office hours
 
         # Convert recurring_until to a date object
@@ -371,14 +421,14 @@ def schedule_office_hours():
                     start_time=start_time,
                     end_time=end_time,
                     booked=False,
-                    appointment_type=appointment_type,
+                    appointment_type="office_hours",  # Explicitly set as office hours
                     recurring_until=recurring_until
                 )
                 db.session.add(new_appointment)
             current_date += timedelta(days=1)  # Increment by one day
 
         db.session.commit()
-        flash("Office hours scheduled successfully!", "success")
+        flash("Office hours scheduled successfully!", "success")  # Correct flash message
         return redirect(url_for('schedule_office_hours'))
 
     return render_template('schedule_office_hours.html')
@@ -428,7 +478,11 @@ def clubs_sl():
 
 @app.route('/view_resources')
 def view_resources():
-    return render_template('view_resources.html')
+    # Query the database for all resources
+    resources = Resource.query.all()
+
+    # Pass the resources to the template
+    return render_template('view_resources.html', resources=resources, role=session.get('role'))
 
 @app.route('/edit_resources', methods=['GET', 'POST'])
 def edit_resources():
@@ -479,57 +533,46 @@ def edit_resources():
 
 @app.route('/view_events')
 def view_events():
-    # Dummy data for past events (replace with data from your database or other sources)
-    past_events = [
-        {
-            "club_name": "Science Club",
-            "location": "Auditorium",
-            "date": "2023-11-10",
-            "time": "10:00 AM",
-            "budget": "$500",
-            "feedback": "Good",
-        },
-        {
-            "club_name": "Literature Club",
-            "location": "Library",
-            "date": "2023-11-15",
-            "time": "2:00 PM",
-            "budget": "$300",
-            "feedback": "Excellent",
-        },
-        {
-            "club_name": "Music Club",
-            "location": "Open Ground",
-            "date": "2023-11-20",
-            "time": "5:00 PM",
-            "budget": "$700",
-            "feedback": "Satisfactory",
-        },
-    ]
+    # Query the database for approved events
+    approved_events = EventRequest.query.filter_by(approved=True).all()
 
-    return render_template('view_events.html', events=past_events)
-
-@app.route('/view_clubs', methods=['GET', 'POST'])
-def view_clubs():
-    clubs = Club.query.all()  # Fetch all clubs
-    selected_club = None
-    total_funds = None
-
-    if request.method == 'POST':
-        selected_club_id = request.form['club_id']  # This is a string (from dropdown value)
-        selected_club = Club.query.get(int(selected_club_id))  # Convert to Club object
-
-        if selected_club:
-            total_funds = db.session.query(db.func.sum(ClubFundsTracker.amount))\
-                .filter_by(club_id=selected_club.id).scalar()
-            total_funds = total_funds if total_funds else 0
-
-    return render_template('view_clubs.html', clubs=clubs, selected_club=selected_club, total_funds=total_funds)
+    # Pass the approved events to the template
+    return render_template('view_events.html', events=approved_events)
 
 @app.route('/resource_requests')
 def resource_requests():
     requests = ResourceRequest.query.all()
     return render_template('resource_requests.html', requests=requests)
+
+@app.route('/approve_resource_request/<int:request_id>', methods=['POST'])
+def approve_resource_request(request_id):
+    resource_request = ResourceRequest.query.get(request_id)
+    if resource_request:
+        # Mark the request as approved
+        resource_request.approved = True
+
+        # Update the `lent_out_to` field in the Resource table
+        resource = Resource.query.get(resource_request.resource_id)
+        if resource:
+            resource.lent_out_to = resource_request.student_id  # Link the resource to the student ID
+            db.session.commit()
+            flash(f"Resource request {resource_request.id} approved successfully!", "success")
+        else:
+            flash("Resource not found!", "danger")
+    else:
+        flash("Resource request not found!", "danger")
+    return redirect(url_for('resource_requests'))
+
+@app.route('/reject_resource_request/<int:request_id>', methods=['POST'])
+def reject_resource_request(request_id):
+    resource_request = ResourceRequest.query.get(request_id)
+    if resource_request:
+        db.session.delete(resource_request)
+        db.session.commit()
+        flash(f"Resource request {resource_request.id} rejected and removed successfully!", "success")
+    else:
+        flash("Resource request not found!", "danger")
+    return redirect(url_for('resource_requests'))
 
 @app.route('/add_request', methods=['GET', 'POST'])
 def add_request():
@@ -588,45 +631,6 @@ def reject_event(id):
     db.session.commit()
     return redirect(url_for('event_requests'))
 
-@app.route('/club_finances', methods=['GET', 'POST'])
-def club_finances():
-    clubs = Club.query.all()
-    selected_club = request.form.get('club_name') if request.method == 'POST' else clubs[0].club_name if clubs else None
-    finances = []
-    graph_url = None
-
-    if selected_club:
-        data = ClubFundsTracker.query.filter_by(club_name=selected_club).order_by(ClubFundsTracker.date).all()
-        final_balance = 0
-        for entry in data:
-            final_balance += entry.amount
-            finances.append({
-                'purpose': entry.purpose,
-                'amount': entry.amount,
-                'date': entry.date,
-                'final_balance': final_balance
-            })
-
-        # Graph generation
-        x_labels = [f["date"] + "\n" + f["purpose"] for f in finances]
-        y_values = [f['final_balance'] for f in finances]
-
-        fig, ax = plt.subplots()
-        ax.plot(x_labels, y_values, marker='o', linestyle='-', color='skyblue')
-        ax.set_title(f'{selected_club} Financials')
-        ax.set_xlabel('Date / Purpose')
-        ax.set_ylabel('Final Balance (PKR)')
-        plt.xticks(rotation=45)
-        plt.tight_layout()
-
-        buf = io.BytesIO()
-        fig.savefig(buf, format="png")
-        buf.seek(0)
-        graph_url = base64.b64encode(buf.getvalue()).decode('utf-8')
-        buf.close()
-
-    return render_template('club_finances.html', clubs=clubs, selected_club=selected_club, finances=finances, graph_url=graph_url)
-
 @app.route('/edit_clubs', methods=['GET', 'POST'])
 def edit_clubs():
     if 'user_id' not in session or session['role'] != 'sl':
@@ -671,6 +675,29 @@ def edit_clubs():
     clubs = Club.query.all()
     return render_template('edit_clubs.html', clubs=clubs)
 
+@app.route('/edit_club/<int:club_id>', methods=['POST'])
+def edit_club(club_id):
+    new_club_name = request.form['new_club_name']
+    club = Club.query.get(club_id)
+    if club:
+        club.club_name = new_club_name
+        db.session.commit()
+        flash(f"Club '{club.club_name}' updated successfully!", "success")
+    else:
+        flash("Club not found!", "danger")
+    return redirect(url_for('edit_clubs'))
+
+@app.route('/delete_club/<int:club_id>', methods=['POST'])
+def delete_club(club_id):
+    club = Club.query.get(club_id)
+    if club:
+        db.session.delete(club)
+        db.session.commit()
+        flash(f"Club '{club.club_name}' deleted successfully!", "success")
+    else:
+        flash("Club not found!", "danger")
+    return redirect(url_for('edit_clubs'))
+
 @app.route('/clubs_st')
 def clubs_st():
     if 'user_id' not in session or 'role' not in session:
@@ -691,28 +718,41 @@ def borrowed_resources():
 
 @app.route('/request_resource', methods=['GET', 'POST'])
 def request_resource():
-    resources = Resource.query.all()  # Fetch all resources from the database
+    # Fetch only resources that are not currently lent out
+    available_resources = Resource.query.filter_by(lent_out_to=None).all()
+
     if request.method == 'POST':
         selected_resource_id = request.form.get('resource_id')  # Use resource ID for saving
-        due_date = request.form.get('due_date')
-        student_user_id = session.get('user_id')  # Assume the logged-in user's ID is stored in the session
+        due_date_str = request.form.get('due_date')  # Get due date as a string
+        student_id = session.get('user_id')  # Assume the logged-in user's ID is stored in the session
 
-        if selected_resource_id and due_date and student_user_id:
-            # Save the resource request to the database
-            new_request = ResourceRequest(
-                resource_id=selected_resource_id,
-                student_user_id=student_user_id,
-                due_date=due_date,
-                approved=False
-            )
-            db.session.add(new_request)
-            db.session.commit()
-            flash("Resource request submitted successfully!", "success")
-            return redirect(url_for('request_resource'))
+        if selected_resource_id and due_date_str and student_id:
+            try:
+                # Convert due_date_str to a Python date object
+                due_date = datetime.strptime(due_date_str, "%Y-%m-%d").date()
+
+                # Check if the resource is still available
+                resource = Resource.query.get(selected_resource_id)
+                if resource and resource.lent_out_to is None:
+                    # Save the resource request to the database
+                    new_request = ResourceRequest(
+                        resource_id=selected_resource_id,
+                        student_id=student_id,
+                        due_date=due_date,
+                        approved=False
+                    )
+                    db.session.add(new_request)
+                    db.session.commit()
+                    flash("Resource request submitted successfully!", "success")
+                    return redirect(url_for('request_resource'))
+                else:
+                    flash("The selected resource is no longer available.", "danger")
+            except ValueError:
+                flash("Invalid date format. Please use YYYY-MM-DD.", "danger")
         else:
             flash("Please select a resource, provide a due date, and ensure you are logged in.", "danger")
 
-    return render_template('request_resource.html', resources=resources)
+    return render_template('request_resource.html', resources=available_resources)
 
 from flask import render_template, request, redirect, flash
 from datetime import datetime
@@ -752,17 +792,17 @@ def request_event():
     return render_template('request_event.html', clubs=clubs, locations=locations)
 
 @app.route('/view_attendance')
-def view_attendance():
-    # Simulated data (replace with DB call)
-    event_name = "Sample Event Name"
-    attendance_data = [
-        {"name": "Member 1", "status": "Present"},
-        {"name": "Member 2", "status": "Absent"},
-        {"name": "Member 3", "status": "Present"},
-        {"name": "Member 4", "status": "Absent"},
-        {"name": "Member 5", "status": "Present"},
-    ]
-    return render_template('view_attendance.html', event_name=event_name, attendance=attendance_data)
+# def view_attendance():
+#     # Simulated data (replace with DB call)
+#     event_name = "Sample Event Name"
+#     attendance_data = [
+#         {"name": "Member 1", "status": "Present"},
+#         {"name": "Member 2", "status": "Absent"},
+#         {"name": "Member 3", "status": "Present"},
+#         {"name": "Member 4", "status": "Absent"},
+#         {"name": "Member 5", "status": "Present"},
+#     ]
+#     return render_template('view_attendance.html', event_name=event_name, attendance=attendance_data)
 
 @app.route('/event_feedback')
 def event_feedback():

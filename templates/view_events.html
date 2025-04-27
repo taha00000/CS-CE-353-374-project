@@ -4,32 +4,32 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Past Events</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <h1>Past Events</h1>
-    <table border="1">
-        <thead>
-            <tr>
-                <th>Club Name</th>
-                <th>Location</th>
-                <th>Date</th>
-                <th>Time</th>
-                <th>Budget</th>
-                <th>Feedback</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for event in events %}
+    <div class="container">
+        <h1>Past Events</h1>
+        <table class="styled-table">
+            <thead>
                 <tr>
-                    <td>{{ event.club_name }}</td>
-                    <td>{{ event.location }}</td>
-                    <td>{{ event.date }}</td>
-                    <td>{{ event.time }}</td>
-                    <td>{{ event.budget }}</td>
-                    <td>{{ event.feedback }}</td>
+                    <th>Club Name</th>
+                    <th>Location</th>
+                    <th>Date</th>
+                    <th>Time</th>
+                    <th>Budget</th>
                 </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                {% for event in events %}
+                <tr>
+                    <td>{{ event.club.club_name }}</td> <!-- Use the club relationship to get the club name -->
+                    <td>{{ event.location }}</td>
+                    <td>{{ event.event_date }}</td>
+                    <td>{{ event.event_time }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </body>
 </html>

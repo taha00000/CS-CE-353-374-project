@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Edit Resources</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
     <div class="container mt-5">
@@ -34,13 +34,22 @@
             <button type="submit" name="add_resource" class="btn btn-success">Add Resource</button>
         </form>
 
-        <!-- List of Resources -->
+        <!-- List of Resources as a Table -->
         <h3>Existing Resources</h3>
-        <ul class="list-group mb-4">
-            {% for resource in resources %}
-                <li class="list-group-item d-flex justify-content-between align-items-center">
-                    {{ resource.resource_name }} (PKR {{ resource.value }})
-                    <div>
+        <table class="styled-table">
+            <thead>
+                <tr>
+                    <th>Resource Name</th>
+                    <th>Value (PKR)</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for resource in resources %}
+                <tr>
+                    <td>{{ resource.resource_name }}</td>
+                    <td>{{ resource.value }}</td>
+                    <td>
                         <!-- Edit Resource Form -->
                         <form method="POST" class="d-inline">
                             <input type="hidden" name="resource_id" value="{{ resource.id }}">
@@ -54,10 +63,11 @@
                             <input type="hidden" name="resource_id" value="{{ resource.id }}">
                             <button type="submit" name="delete_resource" class="btn btn-danger btn-sm">Delete</button>
                         </form>
-                    </div>
-                </li>
-            {% endfor %}
-        </ul>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
 
         <!-- Back Button -->
         <a href="{{ url_for('clubs_sl') }}" class="btn btn-secondary">Back to Clubs</a>

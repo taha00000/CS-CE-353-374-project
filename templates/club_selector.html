@@ -1,5 +1,6 @@
 <!-- club_selector.html -->
 <form method="post">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <label for="club_name">Select Club:</label>
     <select name="club_name" required>
         {% for club in clubs %}

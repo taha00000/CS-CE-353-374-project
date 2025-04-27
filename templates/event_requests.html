@@ -2,20 +2,40 @@
 <html>
 <head>
     <title>Event Requests</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <h1>All Event Requests</h1>
-    <ul>
-        {% for req in requests %}
-            <li>
-                <strong>{{ req.event_name }}</strong> ({{ req.club.club_name }}): {{ req.event_description }}
-                - Status: {{ 'Approved' if req.approved else 'Pending' }}
-                {% if not req.approved %}
-                    | <a href="{{ url_for('approve_event', id=req.id) }}">Approve</a>
-                    | <a href="{{ url_for('reject_event', id=req.id) }}">Reject</a>
-                {% endif %}
-            </li>
-        {% endfor %}
-    </ul>
+    <div class="container">
+        <h1>All Event Requests</h1>
+        <table class="styled-table">
+            <thead>
+                <tr>
+                    <th>Event Name</th>
+                    <th>Club Name</th>
+                    <th>Description</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for req in requests %}
+                <tr>
+                    <td>{{ req.event_name }}</td>
+                    <td>{{ req.club.club_name }}</td>
+                    <td>{{ req.event_description }}</td>
+                    <td>{{ 'Approved' if req.approved else 'Pending' }}</td>
+                    <td>
+                        {% if not req.approved %}
+                            <a href="{{ url_for('approve_event', id=req.id) }}" class="btn btn-success btn-sm">Approve</a>
+                            <a href="{{ url_for('reject_event', id=req.id) }}" class="btn btn-danger btn-sm">Reject</a>
+                        {% else %}
+                            <span class="text-success">Approved</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </body>
 </html>

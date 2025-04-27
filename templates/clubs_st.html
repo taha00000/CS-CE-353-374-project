@@ -3,46 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <title>Welcome Screen</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            background-color: #f4f4f4;
-            margin: 0;
-            padding: 0;
-        }
-        .container {
-            width: 80%;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        h1 {
-            font-size: 40px;
-            color: #333;
-        }
-        .button {
-            font-size: 16px;
-            padding: 10px 20px;
-            margin: 20px;
-            cursor: pointer;
-            background-color: #007BFF;
-            color: white;
-            border: none;
-            border-radius: 5px;
-        }
-        .button:hover {
-            background-color: #0056b3;
-        }
-        footer {
-            font-size: 12px;
-            color: #777;
-            position: absolute;
-            bottom: 10px;
-            width: 100%;
-            text-align: center;
-        }
-    </style>
 </head>
 <body>
     <div class="container">
@@ -51,13 +13,15 @@
         <p>Role: {{ role }}</p>
 
 
-        <button class="button" onclick="window.location.href='/borrowed_resources'">View Borrowed Resources</button>
+        <button class="button" onclick="window.location.href='/view_resources'">View Resources</button>
+        <!-- <button class="button" onclick="window.location.href='/borrowed_resources'">View Borrowed Resources</button> -->
         <button class="button" onclick="window.location.href='/request_resource'">Request Resource</button>
+        <button class="button" onclick="window.location.href='/view_events'">View Events</button>
         <button class="button" onclick="window.location.href='/request_event'">Request Event</button>
-        <button class="button" onclick="window.location.href='/view_attendance'">View Attendance</button>
-        <button class="button" onclick="window.location.href='/event_feedback'">Event Feedback</button>
+        <!-- <button class="button" onclick="window.location.href='/view_attendance'">View Attendance</button> -->
+        <!-- <button class="button" onclick="window.location.href='/event_feedback'">Event Feedback</button> -->
 
-        <footer>SL OFFICE DATABASE, ALL RIGHTS RESERVED 2023</footer>
+        
     </div>
 </body>
 </html>

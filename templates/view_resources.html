@@ -4,30 +4,37 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>View Resources</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
     <div class="container">
-        <h2>View Resource</h2>
-        <form>
-            <label for="resource_id">Resource ID:</label>
-            <input type="text" id="resource_id" name="resource_id" value="MIC001">
-            <br><br>
-            <label for="resource_name">Resource Name:</label>
-            <input type="text" id="resource_name" name="resource_name" value="Microphone">
-            <br><br>
-            <label for="lent_out_to">Lent Out To:</label>
-            <input type="text" id="lent_out_to" name="lent_out_to">
-            <br><br>
-            <label for="event">Event:</label>
-            <select id="event" name="event">
-                <option value="SerVe">SerVe</option>
-                <option value="DiscO">DiscO</option>
-            </select>
-            <br><br>
-            <button type="button">Edit</button>
-            <button type="button">Close</button>
-        </form>
+        <h2>View Resources</h2>
+        <table class="styled-table">
+            <thead>
+                <tr>
+                    <th>Resource ID</th>
+                    <th>Resource Name</th>
+                    <th>Lent Out To</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for resource in resources %}
+                <tr>
+                    <td>{{ resource.id }}</td>
+                    <td>{{ resource.resource_name }}</td>
+                    {% if resource.lent_out_to %}
+                        {% if role == 'sl' %}
+                            <td>{{ resource.user.first_name }} {{ resource.user.last_name }}</td>
+                        {% else %}
+                            <td>{{ Unavailable }}</td>
+                        {% endif %}
+                    {% else %}
+                        <td>Available</td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 </body>
 </html>
