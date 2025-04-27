@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Schedule Office Hours</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+</head>
+<body>
+    <div class="container mt-5">
+        <h1>Schedule Office Hours</h1>
+
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="mt-3">
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <!-- Schedule Office Hours Form -->
+        <form method="POST">
+            <div class="mb-3">
+                <label for="day" class="form-label">Day of the Week:</label>
+                <select name="day" id="day" class="form-select" required>
+                    <option value="Monday">Monday</option>
+                    <option value="Tuesday">Tuesday</option>
+                    <option value="Wednesday">Wednesday</option>
+                    <option value="Thursday">Thursday</option>
+                    <option value="Friday">Friday</option>
+                    <option value="Saturday">Saturday</option>
+                    <option value="Sunday">Sunday</option>
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label for="time" class="form-label">Start Time:</label>
+                <input type="time" id="time" name="start_time" class="form-control" required>
+            </div>
+
+            <div class="mb-3">
+                <label for="time" class="form-label">End Time:</label>
+                <input type="time" id="time" name="end_time" class="form-control" required>
+            </div>
+
+            <div class="mb-3">
+                <label for="recurring_until" class="form-label">Recurring Until:</label>
+                <input type="date" id="recurring_until" name="recurring_until" class="form-control" required>
+            </div>
+
+            <button type="submit" class="btn btn-primary">Schedule Office Hours</button>
+        </form>
+    </div>
+</body>
+</html>

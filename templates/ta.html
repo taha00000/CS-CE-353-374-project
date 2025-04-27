@@ -58,6 +58,9 @@
         {% if role == "ra" or role == "instructor" %}
             <button class="button" onclick="window.location.href='/promote'">Promote Student To TA</button>
         {% endif %}
+        {% if role == "ra" or role == "instructor" or role == "ta" %}
+            <button class="button" onclick="window.location.href='/schedule_office_hours'">Schedule Office Hours</button>
+        {% endif %}
         <button class="button" onclick="window.location.href='/'">Logout</button>
 
         <footer>SL OFFICE DATABASE, ALL RIGHTS RESERVED 2023</footer>

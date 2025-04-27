@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 import io
 import base64
 import datetime
+from datetime import datetime, timedelta
+from sqlalchemy.orm import aliased
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///scheduler.db'
@@ -22,13 +24,18 @@ class User(db.Model):
 
 class Appointment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    ta_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)  # Store TA user ID
-    student_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)  # Store student user ID
-    day = db.Column(db.String(10), nullable=False)  # "Monday", "Tuesday", ...
-    time = db.Column(db.String(10), nullable=False)  # "9:00", "10:00", ...
+    t_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    student_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    day = db.Column(db.String(10), nullable=False)
+    start_time = db.Column(db.String(5), nullable=False)  # e.g., "13:00"
+    end_time = db.Column(db.String(5), nullable=False)    # e.g., "14:00"
     booked = db.Column(db.Boolean, default=False)
+    appointment_type = db.Column(db.String(20), nullable=False)  # "office_hours" or "student_scheduled"
+    recurring_until = db.Column(db.Date, nullable=True)
+    purpose = db.Column(db.String(200), nullable=True)  # Purpose of the meeting
+    approved = db.Column(db.Boolean, default=False, nullable=False)  # Approval status
 
-    ta = db.relationship('User', foreign_keys=[ta_user_id], backref='ta_appointments')
+    ta = db.relationship('User', foreign_keys=[t_user_id], backref='ta_appointments')
     student = db.relationship('User', foreign_keys=[student_user_id], backref='student_appointments')
 
 class Club(db.Model):
@@ -117,8 +124,6 @@ def ta():
     user = User.query.get(session['user_id'])  # Get the current user from session
     return render_template('ta.html', name=user.first_name+" "+user.last_name,  role=user.role)
 
-from sqlalchemy.orm import aliased
-
 @app.route('/appointments', methods=['GET', 'POST'])
 def appointments():
     if 'user_id' not in session:
@@ -129,48 +134,195 @@ def appointments():
         session.clear()
         return redirect(url_for('login'))
 
-    if request.method == 'POST':
-        day = request.form['day']
-        time = request.form['time']
-        new_appointment = Appointment(ta_user_id=user.id, day=day, time=time, booked=False)
-        db.session.add(new_appointment)
-        db.session.commit()
+    # Get the current week (default to this week)
+    today = datetime.today()
+    start_of_week = request.args.get('start_of_week')
+    if start_of_week:
+        start_of_week = datetime.strptime(start_of_week, "%Y-%m-%d")
+    else:
+        start_of_week = today - timedelta(days=today.weekday())  # Start of the current week (Monday)
+
+    end_of_week = start_of_week + timedelta(days=6)  # End of the week (Sunday)
+
+    # Fetch filter criteria from the request
+    major = request.args.get('major', '')
+    first_name = request.args.get('first_name', '')
+    last_name = request.args.get('last_name', '')
+
+    # Query appointments for the current week
+    query = Appointment.query.filter(
+        Appointment.day.between(start_of_week.strftime("%Y-%m-%d"), end_of_week.strftime("%Y-%m-%d"))
+    )
+
+    # Apply filters if provided
+    if major:
+        query = query.join(User, Appointment.t_user_id == User.id).filter(User.major == major)
+    if first_name:
+        query = query.join(User, Appointment.t_user_id == User.id).filter(User.first_name.ilike(f"%{first_name}%"))
+    if last_name:
+        query = query.join(User, Appointment.t_user_id == User.id).filter(User.last_name.ilike(f"%{last_name}%"))
+
+    appointments = query.all()
+
+    # Map major abbreviations to full names
+    MAJOR_FULL_NAMES = {
+        "cs": "Computer Science",
+        "ece": "Electrical/Computer Engineering",
+        "sdp": "Social Development and Policy",
+        "cnd": "Communication & Design",
+        "ch": "Comparative Humanities",
+        "iscim": "Science & Mathematics (iSciM)",
+        "pg": "Playground",
+    }
+
+    return render_template(
+        'appointments.html',
+        appointments=appointments,
+        start_of_week=start_of_week,
+        end_of_week=end_of_week,
+        timedelta=timedelta,
+        user=user,
+        majors=MAJOR_FULL_NAMES,
+        filters={'major': major, 'first_name': first_name, 'last_name': last_name}  # Pass filters to the template
+    )
+
+@app.route('/reserve_appointment/<int:appointment_id>', methods=['POST'])
+def reserve_appointment(appointment_id):
+    if 'user_id' not in session or session['role'] != 'student':
+        return redirect(url_for('login'))  # Only students can reserve appointments
+
+    # Get the appointment and the logged-in student
+    appointment = Appointment.query.get(appointment_id)
+    student = User.query.get(session['user_id'])
+
+    if not appointment or appointment.booked:
+        flash("This appointment is no longer available.", "danger")
         return redirect(url_for('appointments'))
 
-    # Aliasing User table to differentiate TA and Student
-    Student = aliased(User)
+    # Reserve the appointment
+    appointment.booked = True
+    appointment.student_user_id = student.id
+    db.session.commit()
 
-    # Fetch appointments with TA and Student names using LEFT JOIN
-    appointments = db.session.query(
-        Appointment.id,
-        Appointment.day,
-        Appointment.time,
-        Appointment.booked,
-        User.first_name.label('ta_first_name'),
-        User.last_name.label('ta_last_name'),
-        Student.first_name.label('student_first_name'),
-        Student.last_name.label('student_last_name')
-    ).join(User, Appointment.ta_user_id == User.id)\
-     .outerjoin(Student, Appointment.student_user_id == Student.id)\
-     .all()
+    flash("Appointment reserved successfully!", "success")
+    return redirect(url_for('appointments'))
 
-    return render_template('appointments.html', appointments=appointments)
+@app.route('/approve_appointment/<int:appointment_id>', methods=['POST'])
+def approve_appointment(appointment_id):
+    if 'user_id' not in session or session['role'] not in ['instructor', 'ta', 'ra']:
+        return redirect(url_for('login'))  # Only instructors/TA/RA can approve appointments
 
-
-@app.route('/book/<int:appointment_id>')
-def book_appointment(appointment_id):
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
-    
     appointment = Appointment.query.get(appointment_id)
-    student = User.query.get(session['user_id'])  # Get student user_id
+    if not appointment or appointment.t_user_id != session['user_id'] or appointment.appointment_type != "student_scheduled":
+        flash("Unauthorized action.", "danger")
+        return redirect(url_for('appointments'))
 
-    if appointment and not appointment.booked:
-        appointment.student_user_id = student.id  # Store student ID
-        appointment.booked = True
+    # Approve the appointment
+    appointment.approved = True
+    appointment.booked = True
+    db.session.commit()
+
+    flash("Appointment approved successfully!", "success")
+    return redirect(url_for('appointments'))
+
+@app.route('/reject_appointment/<int:appointment_id>', methods=['POST'])
+def reject_appointment(appointment_id):
+    if 'user_id' not in session or session['role'] not in ['instructor', 'ta', 'ra']:
+        return redirect(url_for('login'))  # Only instructors/TA/RA can reject appointments
+
+    appointment = Appointment.query.get(appointment_id)
+    if not appointment or appointment.t_user_id != session['user_id'] or appointment.appointment_type != "student_scheduled":
+        flash("Unauthorized action.", "danger")
+        return redirect(url_for('appointments'))
+
+    # Reject the appointment
+    db.session.delete(appointment)
+    db.session.commit()
+
+    flash("Appointment rejected successfully!", "success")
+    return redirect(url_for('appointments'))
+
+@app.route('/book_appointment', methods=['GET', 'POST'])
+def book_appointment():
+    if 'user_id' not in session or session['role'] != 'student':
+        return redirect(url_for('login'))  # Only students can book appointments
+
+    # Fetch filter criteria
+    search_name = request.args.get('search_name', '')
+    filter_major = request.args.get('filter_major', '')
+
+    # Query instructors
+    query = User.query.filter(User.role.in_(['instructor', 'ta', 'ra']))
+    if search_name:
+        query = query.filter(
+            (User.first_name.ilike(f"%{search_name}%")) | (User.last_name.ilike(f"%{search_name}%"))
+        )
+    if filter_major:
+        query = query.filter(User.major == filter_major)
+
+    instructors = query.all()
+
+    if request.method == 'POST':
+        instructor_id = request.form['instructor']
+        date = request.form['date']
+        start_time = request.form['start_time']
+        end_time = request.form['end_time']
+        purpose = request.form['purpose']
+
+        # Validate the purpose length
+        if len(purpose) > 200:
+            flash("Purpose cannot exceed 200 characters.", "danger")
+            return redirect(url_for('book_appointment'))
+
+        # Validate the time constraints
+        if not (start_time >= "08:30" and end_time <= "18:30"):
+            flash("Appointments must be between 08:30 and 18:30.", "danger")
+            return redirect(url_for('book_appointment'))
+
+        # Validate the duration
+        start_hour, start_minute = map(int, start_time.split(':'))
+        end_hour, end_minute = map(int, end_time.split(':'))
+        duration = (end_hour - start_hour) * 60 + (end_minute - start_minute)
+        if duration > 60:
+            flash("Appointments cannot be longer than 1 hour.", "danger")
+            return redirect(url_for('book_appointment'))
+
+        # Create the appointment
+        new_appointment = Appointment(
+            t_user_id=instructor_id,
+            student_user_id=session['user_id'],
+            day=date,
+            start_time=start_time,
+            end_time=end_time,
+            booked=False,  # Not booked until approved
+            appointment_type="student_scheduled",
+            purpose=purpose,
+            approved=False  # Requires instructor approval
+        )
+        db.session.add(new_appointment)
         db.session.commit()
 
-    return redirect(url_for('appointments'))
+        flash("Appointment request submitted successfully! Waiting for instructor approval.", "success")
+        return redirect(url_for('appointments'))
+
+    # Map major abbreviations to full names
+    MAJOR_FULL_NAMES = {
+        "cs": "Computer Science",
+        "ece": "Electrical/ Computer Engineering",
+        "sdp": "Social Development and Policy",
+        "cnd": "Communication & Design",
+        "ch": "Comparative Humanities",
+        "iscim": "Science & Mathematics (iSciM)",
+        "pg": "Playground",
+    }
+
+    return render_template(
+        'book_appointment.html',
+        instructors=instructors,
+        majors=MAJOR_FULL_NAMES,
+        search_name=search_name,
+        filter_major=filter_major
+    )
 
 @app.route('/promote')
 def promote():
@@ -190,6 +342,46 @@ def promote_to_ta(user_id):
         db.session.commit()
     
     return redirect(url_for('promote'))
+
+@app.route('/schedule_office_hours', methods=['GET', 'POST'])
+def schedule_office_hours():
+    if 'user_id' not in session or session['role'] not in ['ta', 'ra', 'instructor']:
+        return redirect(url_for('login'))
+
+    user = User.query.get(session['user_id'])
+
+    if request.method == 'POST':
+        day = request.form['day']  # Day of the week
+        start_time = request.form['start_time']
+        end_time = request.form['end_time']
+        appointment_type = session['role']  # Role of the user scheduling the office hour
+        recurring_until = request.form.get('recurring_until')  # End date for recurring office hours
+
+        # Convert recurring_until to a date object
+        if recurring_until:
+            recurring_until = datetime.strptime(recurring_until, "%Y-%m-%d").date()
+
+        # Schedule office hours for each week until the recurring_until date
+        current_date = datetime.today().date()
+        while current_date <= recurring_until:
+            if current_date.strftime('%A') == day:  # Match the selected day of the week
+                new_appointment = Appointment(
+                    t_user_id=user.id,
+                    day=current_date.strftime("%Y-%m-%d"),
+                    start_time=start_time,
+                    end_time=end_time,
+                    booked=False,
+                    appointment_type=appointment_type,
+                    recurring_until=recurring_until
+                )
+                db.session.add(new_appointment)
+            current_date += timedelta(days=1)  # Increment by one day
+
+        db.session.commit()
+        flash("Office hours scheduled successfully!", "success")
+        return redirect(url_for('schedule_office_hours'))
+
+    return render_template('schedule_office_hours.html')
 
 @app.route('/borrow_resource', methods=['GET', 'POST'])
 def borrow_resource():
