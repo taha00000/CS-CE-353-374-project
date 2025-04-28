@@ -42,33 +42,27 @@
         </form>
 
         <!-- Booking Form -->
-        <form method="POST" action="{{ url_for('book_appointment') }}">
-            <div class="mb-3">
-                <label for="instructor" class="form-label">Select Instructor:</label>
-                <select id="instructor" name="instructor" class="form-select" required>
-                    <option value="" disabled selected>Select an instructor</option>
-                    {% for instructor in instructors %}
-                        <option value="{{ instructor.id }}">{{ instructor.first_name }} {{ instructor.last_name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="mb-3">
-                <label for="date" class="form-label">Select Date:</label>
-                <input type="date" id="date" name="date" class="form-control" required>
-            </div>
-            <div class="mb-3">
-                <label for="start_time" class="form-label">Start Time:</label>
-                <input type="time" id="start_time" name="start_time" class="form-control" required>
-            </div>
-            <div class="mb-3">
-                <label for="end_time" class="form-label">End Time:</label>
-                <input type="time" id="end_time" name="end_time" class="form-control" required>
-            </div>
-            <div class="mb-3">
-                <label for="purpose" class="form-label">Purpose of the Meeting (max 200 characters):</label>
-                <textarea id="purpose" name="purpose" class="form-control" maxlength="200" required></textarea>
-            </div>
-            <button type="submit" class="btn btn-primary">Book Appointment</button>
+        <form method="POST">
+            <label for="instructor">Select Instructor:</label>
+            <select name="instructor" id="instructor" required>
+                {% for instructor in instructors %}
+                <option value="{{ instructor.id }}">{{ instructor.first_name }} {{ instructor.last_name }}</option>
+                {% endfor %}
+            </select>
+
+            <label for="date">Date:</label>
+            <input type="date" name="date" id="date" required>
+
+            <label for="start_time">Start Time:</label>
+            <input type="time" name="start_time" id="start_time" required>
+
+            <label for="end_time">End Time:</label>
+            <input type="time" name="end_time" id="end_time" required>
+
+            <label for="purpose">Purpose:</label>
+            <textarea name="purpose" id="purpose" maxlength="200" required></textarea>
+
+            <button type="submit">Book Appointment</button>
         </form>
     </div>
 </body>

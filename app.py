@@ -291,6 +291,12 @@ def book_appointment():
         end_time = request.form['end_time']
         purpose = request.form['purpose']
 
+        # Validate the instructor ID
+        instructor = User.query.get(instructor_id)
+        if not instructor or instructor.role not in ['instructor', 'ta', 'ra']:
+            flash("Invalid instructor selected.", "danger")
+            return redirect(url_for('book_appointment'))
+
         # Validate the purpose length
         if len(purpose) > 200:
             flash("Purpose cannot exceed 200 characters.", "danger")

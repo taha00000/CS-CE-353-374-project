@@ -11,7 +11,7 @@
         <p>User: {{ name }} </p>
         <p>Role: {{ role }}</p>
 
-        <button class="button" onclick="window.location.href='/appointments'">Book Appointment</button>
+        <button class="button" onclick="window.location.href='/appointments'">Appointments</button>
         {% if role == "ra" or role == "instructor" %}
             <button class="button" onclick="window.location.href='/promote'">Promote Student To TA</button>
         {% endif %}

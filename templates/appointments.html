@@ -68,16 +68,24 @@
                                     <strong>{{ appointment.start_time }} - {{ appointment.end_time }}</strong><br>
                                     <span>With: {{ appointment.ta.first_name }} {{ appointment.ta.last_name }}</span><br>
                                     {% if appointment.appointment_type == "student_scheduled" %}
-                                        {% if user.role in ['instructor', 'ta', 'ra'] %}
+                                        {% if user.id ==  appointment.t_user_id %}
                                             {% if not appointment.approved %}
-                                                <form method="POST" action="{{ url_for('approve_appointment', appointment_id=appointment.id) }}" style="display: inline;">
-                                                    <button type="submit" class="btn btn-success btn-sm">Approve</button>
+                                                <form method="POST" action="{{ url_for('approve_appointment', appointment_id=appointment.id) }}" class="small-form">
+                                                    <button type="submit" class="btn btn-success btn-sm small-button">Approve</button>
                                                 </form>
-                                                <form method="POST" action="{{ url_for('reject_appointment', appointment_id=appointment.id) }}" style="display: inline;">
-                                                    <button type="submit" class="btn btn-danger btn-sm">Reject</button>
+                                                <form method="POST" action="{{ url_for('reject_appointment', appointment_id=appointment.id) }}" class="small-form">
+                                                    <button type="submit" class="btn btn-success btn-sm small-button">Reject</button>
                                                 </form>
                                             {% else %}
                                                 <span class="text-success">Approved</span>
+                                            {% endif %}
+                                        {% else %}
+                                            {% if user.id == appointment.student_user_id %}
+                                                {% if not appointment.approved %}
+                                                    <span class="text-info">Pending Approval</span>
+                                                {% else %}
+                                                    <span class="text-success">Approved</span>
+                                                {% endif %}
                                             {% endif %}
                                         {% endif %}
                                     {% else %}
